@@ -14,15 +14,22 @@ class Blockchain:
         self.chain = []
         self.create_block(proof = 1, previous_hash = '0')
     
-    def create_block(self, proof, previous_hash):
+    def create_block(self, proof, previous_hash):           #candidate,unique_id should be args
         block = {'index':len(self.chain) + 1,
                  'timestamp': str(datetime.datetime.now()),
                  'proof':proof,
                  'previous_hash':previous_hash,
-                 'data': -1}
+                 'candidate': -1,
+                 'unique_id':-1}                        #1st check if valid vote or not and then append
         self.chain.append(block)
         return block
     
+    #def is_block_valid(self, block, ref to db)
+         #if valid call to create_block
+         #else add it to unaccounted votes
+         
+         
+         
     def get_previous_block(self):
         return self.chain[-1]
     
@@ -80,7 +87,7 @@ def mine_block():
                  'timestamp':block['timestamp'],
                  'proof':block['proof'],
                  'previous_hash':block['previous_hash'],
-                 'You Voted':block['data']}
+                 'You Voted':block['candidate']}
      return jsonify(response), 200
  
  # Getting the Full Blockchain
@@ -93,11 +100,4 @@ def get_chain():
 # Running the app
 app.run(host = '0.0.0.0', port = 5001)
  
-    
-        
-    
-    
-    
-    
-    
     
