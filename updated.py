@@ -88,6 +88,7 @@ def mine_block():
                  'proof':block['proof'],
                  'previous_hash':block['previous_hash'],
                  'You Voted':block['candidate']}
+     print("a new block is mined")                              # new vote is casted
      return jsonify(response), 200
  
  # Getting the Full Blockchain
@@ -100,4 +101,3 @@ def get_chain():
 # Running the app
 app.run(host = '0.0.0.0', port = 5001)
  
-    
