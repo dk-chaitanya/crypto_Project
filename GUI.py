@@ -1,11 +1,18 @@
 import sys,os
-
+import sqlite3
 from PyQt5.QtWidgets import QApplication,QMessageBox,QHBoxLayout,QMainWindow,QDialog,QComboBox,QWidget,QGroupBox,QPushButton,QLabel,QButtonGroup,QLineEdit,QRadioButton,QFormLayout,QScrollArea,QVBoxLayout
 from PyQt5.QtCore import pyqtSlot,Qt
 from PyQt5.QtGui import QPixmap
+import datetime
+
+import custom_blockchain
+
 os.environ["QT_SCALE_FACTOR"] = "1.30"
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
+db = sqlite3.connect('VoterInfo.db')
+
 
 class LoginWindow(QDialog):
 
@@ -47,16 +54,30 @@ class LoginWindow(QDialog):
         
     @pyqtSlot()
     def loginUser(self):
-        uname=self.text_box1.text()
-        passwrd=self.text_box2.text()
-        if uname=="123" and passwrd=="123":
-            self.hide()
-            voting_win=VotingWindow(self)
-        else:
-            QMessageBox.about(self, "Alert","Please Enter Valid Credentials")             
-class VotingWindow(QDialog):
+        voterId=self.text_box1.text()
+        token=self.text_box2.text()
+        db = sqlite3.connect('VoterInfo.db')    
+        cursor = db.cursor()
 
-    def __init__(self,parent=None):
+        cursor.execute(f"SELECT Voted FROM tokentable where voter='{voterId}' and token='{token}'")           
+        all_rows1 = cursor.fetchall()
+        print(all_rows1)      
+        if len(all_rows1)>0: 
+            if all_rows1[0][0]=='1':
+                QMessageBox.about(self, "Alert","Already Voted")              
+            else:
+                self.hide()
+                cursor.execute(f"SELECT name FROM candidate")            
+                all_rows = cursor.fetchall()            
+                print(all_rows)
+                db.close()
+                voting_win=VotingWindow(voterId,all_rows,self)         
+        else:
+            QMessageBox.about(self, "Alert","Invalid Credentials")                   
+        db.close()
+        
+class VotingWindow(QDialog):
+    def __init__(self,voterId,candidate_list,parent=None):
         super().__init__(parent)
         self.title = 'Cast Voting'
         self.left = 10
@@ -65,15 +86,14 @@ class VotingWindow(QDialog):
         self.height = 600
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        
+        self.voterId=voterId
         self.lbl1=QLabel("Cast yout Vote",self)
         self.lbl1.setStyleSheet("font: 16px")
         
-        self.candidate_list=['John','Alice','Michael','Mrinal','Trump','Modi']
+        self.candidate_list=candidate_list
         
         self.button1=QPushButton("Cast yout Vote",self)
         self.button1.clicked.connect(self.castVote)
-        print("y")
         
         self.scrollLayout = QVBoxLayout()
         self.scrollWidget = QWidget()
@@ -91,6 +111,7 @@ class VotingWindow(QDialog):
         self.layout1.addSpacing(20)
 
         self.init_candidates()
+        
     def setCandidateList(self,candidate_list):
         self.candidate_list=candidate_list
         
@@ -103,7 +124,7 @@ class VotingWindow(QDialog):
             rb=QRadioButton("")
             self.button_group.addButton(rb,i)
             
-            lbl_box=QLabel(self.candidate_list[i],self)
+            lbl_box=QLabel(self.candidate_list[i][0],self)
             lbl_box.setStyleSheet("font:16px")
             
             layout.addWidget(rb)
@@ -117,13 +138,34 @@ class VotingWindow(QDialog):
         
     @pyqtSlot()
     def castVote(self):
-        print(self.button_group.checkedId())
-        self.hide()
-        voting_win=ThankYouWindow(self)
-
+        if self.button_group.checkedId()>=0:
+            print("voted ",self.candidate_list[self.button_group.checkedId()][0])
+            
+            blockchain = custom_blockchain.Blockchain()
+            blockchain.load_stored_blockchain()
+            
+            verify_data=blockchain.is_chain_valid()
+            if verify_data:
+                
+                blockchain.add_and_mine_block(self.voterId,self.candidate_list[self.button_group.checkedId()][0])
+                blockchain.update_stored_blockchain()
+                
+                db = sqlite3.connect('VoterInfo.db')    
+                cursor = db.cursor()
+                cursor.execute(f"Update tokentable set voted='1' where voter='{self.voterId}'")            
+                db.commit()
+                
+                self.hide()
+                voting_win=ThankYouWindow(self.candidate_list[self.button_group.checkedId()][0],self)
+            else:
+                QMessageBox.about(self, "Alert","Blockchain Voting data corrupted. Voting is suspended currently. Please wait until further Notice.")                
+                self.close()
+        else:                            
+            QMessageBox.about(self, "Alert","Please select one candidate.")                 
+            
 class ThankYouWindow(QDialog):
 
-    def __init__(self,parent=None):
+    def __init__(self,candidate,parent=None):
         super().__init__(parent)
         self.title = 'ThankYou'
         self.left = 10
@@ -133,10 +175,10 @@ class ThankYouWindow(QDialog):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         
-        self.lbl1=QLabel("Thank You For Voting",self)
-        self.lbl1.setStyleSheet("font: 16px")
+        self.lbl1=QLabel(f"Thank You For Voting. \nYou Voted for {candidate}.\n\nPlease Press Exit.",self)
+        self.lbl1.setStyleSheet("font: 20px")
         self.lbl1.move(200,200)
-        self.lbl1.resize(200,70)
+        self.lbl1.resize(500,140)
         
         self.button1=QPushButton("Exit",self)
         self.button1.clicked.connect(self.exit_now)
