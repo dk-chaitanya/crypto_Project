@@ -1,4 +1,5 @@
-This Software is application of blockchain in Voting.
+This Software is application of blockchain in Voting made(currently only single node application) in python3.
+The GUI part is done in PyQt5.
 
 Voting session has to be started by initializing blockchain using initialize_blockchain.py and filling candidates and UserInfo into database VoterInfo.db
 
